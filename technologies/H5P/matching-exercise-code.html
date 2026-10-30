@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Matching Exercise</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; padding: 1.5rem; background: #fff; }
+
+    h2 { font-size: 1.1rem; margin-bottom: 0.5rem; color: #333; }
+    p.instruction { font-size: 0.9rem; color: #555; margin-bottom: 1.2rem; }
+
+    .columns {
+      display: flex;
+      gap: 2rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .column {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      min-width: 140px;
+    }
+
+    .column h3 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 0.3rem;
+      letter-spacing: 0.05em;
+    }
+
+    .word-card {
+      padding: 0.6rem 1rem;
+      border: 2px solid #0088cc;
+      border-radius: 6px;
+      cursor: pointer;
+      background: #fff;
+      font-size: 0.95rem;
+      text-align: center;
+      transition: background 0.15s, border-color 0.15s;
+      user-select: none;
+    }
+
+    .word-card:hover { background: #e8f4fb; }
+    .word-card.selected { background: #0088cc; color: #fff; }
+    .word-card.correct { background: #4caf50; border-color: #4caf50; color: #fff; cursor: default; }
+    .word-card.wrong { background: #f44336; border-color: #f44336; color: #fff; }
+    .word-card.disabled { opacity: 0.4; cursor: default; }
+
+    .feedback {
+      margin-top: 1.2rem;
+      font-size: 1rem;
+      font-weight: bold;
+      text-align: center;
+      min-height: 1.4rem;
+      color: #333;
+    }
+
+    .score {
+      text-align: center;
+      margin-top: 0.4rem;
+      font-size: 0.9rem;
+      color: #555;
+    }
+
+    .btn-reset {
+      display: block;
+      margin: 1rem auto 0;
+      padding: 0.5rem 1.4rem;
+      background: #0088cc;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    .btn-reset:hover { background: #006fa8; }
+  </style>
+</head>
+<body>
+  <h2>Turkish – English Word Matching</h2>
+  <p class="instruction">Click a Turkish word, then click its English meaning.</p>
+
+  <div class="columns">
+    <div class="column">
+      <h3>Turkish</h3>
+      <div id="turkish-col"></div>
+    </div>
+    <div class="column">
+      <h3>English</h3>
+      <div id="english-col"></div>
+    </div>
+  </div>
+
+  <div class="feedback" id="feedback"></div>
+  <div class="score" id="score"></div>
+  <button class="btn-reset" id="resetBtn">Reset</button>
+
+  <script>
+    const pairs = [
+      { tr: "kitap",     en: "book" },
+      { tr: "okul",      en: "school" },
+      { tr: "öğretmen",  en: "teacher" },
+      { tr: "kalem",     en: "pencil" },
+      { tr: "masa",      en: "table" },
+      { tr: "pencere",   en: "window" },
+      { tr: "kapı",      en: "door" },
+      { tr: "sözlük",    en: "dictionary" },
+    ];
+
+    let selected = null;       // { side, index }
+    let matched = new Set();
+    let wrong = null;
+    let total = pairs.length;
+
+    function shuffle(arr) {
+      return [...arr].sort(() => Math.random() - 0.5);
+    }
+
+    let trOrder, enOrder;
+
+    function render() {
+      trOrder = shuffle(pairs.map((_, i) => i));
+      enOrder = shuffle(pairs.map((_, i) => i));
+      selected = null;
+      matched = new Set();
+      wrong = null;
+
+      document.getElementById('feedback').textContent = '';
+      document.getElementById('score').textContent = '';
+
+      const trCol = document.getElementById('turkish-col');
+      const enCol = document.getElementById('english-col');
+      trCol.innerHTML = '';
+      enCol.innerHTML = '';
+
+      trOrder.forEach((pairIdx, pos) => {
+        const card = document.createElement('div');
+        card.className = 'word-card';
+        card.textContent = pairs[pairIdx].tr;
+        card.dataset.pairIdx = pairIdx;
+        card.dataset.pos = pos;
+        card.addEventListener('click', () => handleClick('tr', pairIdx, card));
+        trCol.appendChild(card);
+      });
+
+      enOrder.forEach((pairIdx, pos) => {
+        const card = document.createElement('div');
+        card.className = 'word-card';
+        card.textContent = pairs[pairIdx].en;
+        card.dataset.pairIdx = pairIdx;
+        card.dataset.pos = pos;
+        card.addEventListener('click', () => handleClick('en', pairIdx, card));
+        enCol.appendChild(card);
+      });
+    }
+
+    function getAllCards() {
+      return document.querySelectorAll('.word-card');
+    }
+
+    function getCard(side, pairIdx) {
+      const col = side === 'tr' ? document.getElementById('turkish-col') : document.getElementById('english-col');
+      return [...col.children].find(c => parseInt(c.dataset.pairIdx) === pairIdx);
+    }
+
+    function handleClick(side, pairIdx, card) {
+      if (card.classList.contains('correct') || card.classList.contains('disabled')) return;
+
+      // Clear previous wrong highlight
+      if (wrong) {
+        getCard(wrong.side, wrong.pairIdx)?.classList.remove('wrong');
+        if (selected) getCard(selected.side, selected.pairIdx)?.classList.remove('wrong');
+        wrong = null;
+      }
+
+      if (!selected) {
+        selected = { side, pairIdx };
+        card.classList.add('selected');
+        return;
+      }
+
+      // Same side clicked again
+      if (selected.side === side) {
+        getCard(selected.side, selected.pairIdx).classList.remove('selected');
+        selected = { side, pairIdx };
+        card.classList.add('selected');
+        return;
+      }
+
+      // Different side — check match
+      const prevCard = getCard(selected.side, selected.pairIdx);
+      prevCard.classList.remove('selected');
+
+      if (selected.pairIdx === pairIdx) {
+        // Correct
+        card.classList.add('correct');
+        prevCard.classList.add('correct');
+        matched.add(pairIdx);
+        selected = null;
+        document.getElementById('feedback').textContent = '✓ Correct!';
+        document.getElementById('score').textContent = `${matched.size} / ${total} matched`;
+
+        if (matched.size === total) {
+          document.getElementById('feedback').textContent = '🎉 Well done! All matched!';
+        }
+      } else {
+        // Wrong
+        card.classList.add('wrong');
+        prevCard.classList.add('wrong');
+        wrong = { side, pairIdx };
+        document.getElementById('feedback').textContent = '✗ Try again.';
+        setTimeout(() => {
+          card.classList.remove('wrong');
+          prevCard.classList.remove('wrong');
+          wrong = null;
+          document.getElementById('feedback').textContent = '';
+        }, 900);
+        selected = null;
+      }
+    }
+
+    document.getElementById('resetBtn').addEventListener('click', render);
+    render();
+  </script>
+</body>
+</html>

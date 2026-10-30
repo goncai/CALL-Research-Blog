@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Speech Recognition Demo | CALL Research Notes</title>
+    <link rel="stylesheet" href="../../styles.css" />
+    <link href="./recorder.css" rel="stylesheet" />
+  </head>
+
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header">
+      <a class="brand" href="../../index.html">CALL <span>Research Notes</span></a>
+      <nav class="site-nav" aria-label="Main navigation">
+        <a href="../../index.html">Home</a><a href="../../index.html#research">Research</a>
+        <a href="../../index.html#technologies">Technologies</a><a href="../../index.html#about">About</a>
+      </nav>
+    </header>
+    <main id="main" class="page-container">
+      <div class="container">
+        <div class="center">
+          <a href="../../index.html" class="back-button">← Back to Home</a>
+          <h1>Speech Recognition</h1>
+        </div>
+        <p>
+          On this page, you can record your voice and use Speech Recognition to see it as text.
+        </p>
+      </div>
+      <section class="main-controls">
+        <canvas class="visualizer" height="60" role="img" aria-label="Audio recording level visualizer"></canvas>
+        <div id="buttons">
+          <button class="record">Record</button>
+          <button class="stop">Stop</button>
+        </div>
+      </section>
+      <section class="sound-clips" aria-label="Recorded audio clips"></section>
+
+      <p id="speechRecognitionText" aria-live="polite" aria-atomic="true"></p>
+    </main>
+    <footer class="site-footer"><p>© 2026 Gonca İnceören · CALL Research Notes</p></footer>
+    <script src="./recorder.js"></script>
+    <script src="./convert-audio.js"></script>
+    <script src="./recognition.js"></script>
+  </body>
+</html>

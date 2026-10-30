@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CLI-Aware Language Exercise</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #fff; color: #222; font-size: 14px; }
+
+    /* ── SETUP ───────────────────────── */
+    #setup { padding: 1.4rem; max-width: 520px; margin: 0 auto; }
+    #setup h2 { font-size: 1.05rem; margin-bottom: 0.25rem; color: #333; }
+    #setup > p { font-size: 0.82rem; color: #666; margin-bottom: 1.2rem; }
+
+    .step { margin-bottom: 1.1rem; }
+    .step-label {
+      font-size: 0.75rem; font-weight: bold; text-transform: uppercase;
+      letter-spacing: 0.05em; color: #555; margin-bottom: 0.45rem;
+      display: flex; align-items: center; gap: 0.4rem;
+    }
+    .step-num {
+      width: 18px; height: 18px; border-radius: 50%;
+      background: #0088cc; color: #fff;
+      font-size: 0.65rem; display: inline-flex;
+      align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .step-hint { font-size: 0.72rem; color: #999; font-weight: normal; text-transform: none; letter-spacing: 0; margin-left: 0.2rem; }
+
+    .lang-buttons { display: flex; gap: 0.45rem; flex-wrap: wrap; }
+    .lang-btn {
+      display: flex; flex-direction: column; align-items: flex-start;
+      padding: 0.45rem 0.8rem;
+      border: 2px solid #0088cc; border-radius: 8px;
+      background: #fff; color: #0088cc;
+      font-size: 0.88rem; cursor: pointer;
+      transition: all 0.15s; min-width: 100px;
+    }
+    .lang-btn:hover:not(:disabled) { background: #e8f4fb; }
+    .lang-btn.active  { background: #0088cc; color: #fff; }
+    .lang-btn:disabled { opacity: 0.3; cursor: default; border-color: #bbb; color: #bbb; background: #fff; }
+    .lang-btn .btn-name { font-weight: bold; }
+    .lang-btn .avail-tag {
+      font-size: 0.65rem; margin-top: 0.15rem;
+      padding: 0.08rem 0.35rem; border-radius: 6px; font-weight: bold;
+    }
+    .avail-tag.yes  { background: #e8f5e9; color: #2e7d32; }
+    .avail-tag.no   { background: #f5f5f5; color: #999; }
+    .avail-tag.skip { background: #fff8e1; color: #f57f17; }
+    .lang-btn.active .avail-tag.yes  { background: rgba(255,255,255,0.25); color: #fff; }
+    .lang-btn.active .avail-tag.no   { background: rgba(255,255,255,0.15); color: rgba(255,255,255,0.65); }
+    .lang-btn.active .avail-tag.skip { background: rgba(255,255,255,0.2);  color: rgba(255,255,255,0.8); }
+
+    .skip-btn {
+      font-size: 0.75rem; color: #999; background: none;
+      border: 1px dashed #ccc; border-radius: 6px;
+      padding: 0.3rem 0.7rem; cursor: pointer; margin-top: 0.4rem;
+    }
+    .skip-btn:hover { color: #555; border-color: #999; }
+    .skip-btn.active { color: #f57f17; border-color: #f57f17; background: #fff8e1; }
+
+    #start-btn {
+      display: block; width: 100%; margin-top: 1.2rem;
+      padding: 0.6rem; background: #0088cc; color: #fff;
+      border: none; border-radius: 8px; font-size: 0.95rem; cursor: pointer;
+    }
+    #start-btn:hover:not(:disabled) { background: #006fa8; }
+    #start-btn:disabled { opacity: 0.35; cursor: default; }
+
+    /* ── LEARNER PROFILE ─────────────── */
+    #profile-bar {
+      display: none; background: #f8f9fa; border-bottom: 1px solid #e0e0e0;
+      padding: 0.5rem 1.2rem; font-size: 0.75rem; color: #555;
+      display: flex; gap: 1rem; flex-wrap: wrap; align-items: center;
+    }
+    .profile-item { display: flex; flex-direction: column; }
+    .profile-item span:first-child { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.04em; color: #999; }
+    .profile-item span:last-child  { font-weight: bold; color: #333; }
+    .stat-chip {
+      font-size: 0.68rem; background: #e3f2fd; color: #1565c0;
+      padding: 0.1rem 0.45rem; border-radius: 10px; margin-left: 0.3rem;
+    }
+
+    /* ── EXERCISE ────────────────────── */
+    #exercise { display: none; padding: 1.2rem; max-width: 560px; margin: 0 auto; }
+
+    .progress-wrap { height: 5px; background: #e0e0e0; border-radius: 3px; margin-bottom: 1rem; }
+    .progress-bar  { height: 5px; background: #0088cc; border-radius: 3px; transition: width 0.3s; }
+
+    .q-meta { font-size: 0.7rem; color: #888; margin-bottom: 0.5rem; display: flex; gap: 0.4rem; flex-wrap: wrap; }
+    .q-meta span { background: #f0f0f0; border-radius: 10px; padding: 0.1rem 0.45rem; }
+    .q-meta span.cli-tag { background: #fff3e0; color: #e65100; }
+
+    .error-label { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: #e67e22; font-weight: bold; margin-bottom: 0.25rem; }
+    .sentence {
+      font-size: 0.95rem; background: #fff8e1;
+      border-left: 4px solid #f0b429; padding: 0.55rem 0.75rem;
+      border-radius: 0 6px 6px 0; margin-bottom: 0.35rem; font-style: italic;
+    }
+    .instruction { font-size: 0.8rem; color: #555; margin-bottom: 0.7rem; }
+
+    .options { display: flex; flex-direction: column; gap: 0.45rem; margin-bottom: 0.7rem; }
+    .option-btn {
+      text-align: left; padding: 0.5rem 0.75rem;
+      border: 2px solid #ddd; border-radius: 6px;
+      background: #fff; font-size: 0.88rem; cursor: pointer; transition: all 0.15s;
+    }
+    .option-btn:hover:not(:disabled) { border-color: #0088cc; background: #e8f4fb; }
+    .option-btn.correct  { border-color: #4caf50; background: #e8f5e9; color: #2e7d32; font-weight: bold; }
+    .option-btn.wrong    { border-color: #f44336; background: #ffebee; color: #c62828; }
+    .option-btn:disabled { cursor: default; }
+
+    /* ── FEEDBACK ────────────────────── */
+    .feedback-box {
+      display: none; border-radius: 8px; padding: 0.75rem 0.9rem;
+      font-size: 0.85rem; line-height: 1.55; margin-bottom: 0.7rem;
+    }
+    .feedback-box.correct-fb { background: #e8f5e9; border: 1px solid #a5d6a7; }
+    .feedback-box.wrong-fb   { background: #fff3e0; border: 1px solid #ffcc80; }
+    .fb-title  { font-weight: bold; margin-bottom: 0.3rem; font-size: 0.9rem; }
+    .fb-main   { margin-bottom: 0.4rem; }
+    .cli-explanation { font-size: 0.8rem; color: #444; line-height: 1.5; }
+    .cli-explanation strong { color: #222; }
+
+    .treebank-example {
+      margin-top: 0.55rem; padding: 0.45rem 0.65rem;
+      background: rgba(0,0,0,0.04); border-radius: 6px;
+      font-size: 0.78rem; color: #555;
+    }
+    .treebank-example .tb-label {
+      font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em;
+      color: #888; margin-bottom: 0.2rem; font-weight: bold;
+    }
+    .treebank-example em { color: #333; font-style: normal; font-weight: bold; }
+
+    #next-btn {
+      display: none; width: 100%; padding: 0.55rem;
+      background: #0088cc; color: #fff; border: none;
+      border-radius: 8px; font-size: 0.9rem; cursor: pointer;
+    }
+    #next-btn:hover { background: #006fa8; }
+
+    /* ── RESULTS ─────────────────────── */
+    #results { display: none; padding: 1.4rem; max-width: 520px; margin: 0 auto; text-align: center; }
+    #results h2 { font-size: 1.1rem; margin-bottom: 0.4rem; }
+    .score-big { font-size: 2.4rem; font-weight: bold; color: #0088cc; margin: 0.7rem 0; }
+    #results p { font-size: 0.88rem; color: #555; margin-bottom: 1rem; line-height: 1.5; }
+    #restart-btn {
+      padding: 0.55rem 1.4rem; background: #0088cc; color: #fff;
+      border: none; border-radius: 8px; font-size: 0.9rem; cursor: pointer;
+    }
+    #restart-btn:hover { background: #006fa8; }
+  </style>
+</head>
+<body>
+
+<!-- ══ SETUP ════════════════════════════════════════ -->
+<div id="setup">
+  <h2>L1-Aware Grammar Exercise</h2>
+  <p>Select your language background to receive feedback based on your specific cross-linguistic influence (CLI) patterns.</p>
+  <p style="font-size:0.75rem;color:#888;margin-top:-0.7rem;margin-bottom:1.2rem;">
+    Typological data and example sentences are drawn from the
+    <a href="https://universaldependencies.org" target="_blank" style="color:#0088cc;">Universal Dependencies</a> treebanks:
+    UD_Turkish-BOUN (100,713 tokens), UD_English-EWT (204,578 tokens), and UD_Spanish-GSD (382,327 tokens).
+  </p>
+
+  <!-- Step 1: L1 -->
+  <div class="step" id="step1">
+    <div class="step-label">
+      <span class="step-num">1</span>
+      Your native language (L1)
+    </div>
+    <div class="lang-buttons" id="l1-buttons">
+      <button class="lang-btn" data-lang="TR"><span class="btn-name">Turkish</span></button>
+      <button class="lang-btn" data-lang="EN"><span class="btn-name">English</span></button>
+      <button class="lang-btn" data-lang="ES"><span class="btn-name">Spanish</span></button>
+    </div>
+  </div>
+
+  <!-- Step 2: L2 (optional) -->
+  <div class="step" id="step2" style="opacity:0.4;pointer-events:none;">
+    <div class="step-label">
+      <span class="step-num">2</span>
+      Your second language (L2)
+      <span class="step-hint">— if available</span>
+    </div>
+    <div class="lang-buttons" id="l2-buttons">
+      <button class="lang-btn" data-lang="TR" disabled><span class="btn-name">Turkish</span></button>
+      <button class="lang-btn" data-lang="EN" disabled><span class="btn-name">English</span></button>
+      <button class="lang-btn" data-lang="ES" disabled><span class="btn-name">Spanish</span></button>
+    </div>
+    <button class="skip-btn" id="skip-l2-btn">Skip — I don't have an L2 in this trio</button>
+  </div>
+
+  <!-- Step 3: Target -->
+  <div class="step" id="step3" style="opacity:0.4;pointer-events:none;">
+    <div class="step-label">
+      <span class="step-num">3</span>
+      Your target language
+    </div>
+    <div class="lang-buttons" id="target-buttons">
+      <button class="lang-btn" data-lang="TR" disabled><span class="btn-name">Turkish</span></button>
+      <button class="lang-btn" data-lang="EN" disabled><span class="btn-name">English</span></button>
+      <button class="lang-btn" data-lang="ES" disabled><span class="btn-name">Spanish</span></button>
+    </div>
+  </div>
+
+  <button id="start-btn" disabled>Start Exercise →</button>
+</div>
+
+<!-- ══ PROFILE BAR ═══════════════════════════════════ -->
+<div id="profile-bar" style="display:none;">
+  <div class="profile-item">
+    <span>L1</span><span id="pb-l1">—</span>
+  </div>
+  <div class="profile-item">
+    <span>L2</span><span id="pb-l2">—</span>
+  </div>
+  <div class="profile-item">
+    <span>Target</span><span id="pb-target">—</span>
+  </div>
+  <div class="profile-item" id="pb-stats-wrap" style="display:none;">
+    <span>Typological distance (L1→Target)</span>
+    <span id="pb-stats"></span>
+  </div>
+</div>
+
+<!-- ══ EXERCISE ══════════════════════════════════════ -->
+<div id="exercise">
+  <div class="progress-wrap"><div class="progress-bar" id="progress-bar"></div></div>
+  <div class="q-meta" id="q-meta"></div>
+  <div class="error-label" id="error-label"></div>
+  <div class="sentence" id="q-sentence"></div>
+  <div class="instruction" id="q-instruction"></div>
+  <div class="options" id="q-options"></div>
+  <div class="feedback-box" id="feedback-box">
+    <div class="fb-title" id="fb-title"></div>
+    <div class="fb-main" id="fb-main"></div>
+    <div class="cli-explanation" id="fb-cli"></div>
+    <div class="treebank-example" id="fb-treebank" style="display:none;">
+      <div class="tb-label">Real example from UD treebank</div>
+      <div id="fb-treebank-text"></div>
+    </div>
+  </div>
+  <button id="next-btn">Next →</button>
+</div>
+
+<!-- ══ RESULTS ═══════════════════════════════════════ -->
+<div id="results">
+  <h2>Exercise Complete!</h2>
+  <div class="score-big" id="final-score"></div>
+  <p id="results-msg"></p>
+  <button id="restart-btn">Try Again</button>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════
+//  TREEBANK DATA (extracted from UD_Turkish-BOUN,
+//  UD_English-EWT, UD_Spanish-GSD dev sets)
+// ════════════════════════════════════════════════════
+const TB = {
+  TR: {
+    stats: { verb_final_ratio: 0.436, adj_before_noun_ratio: 0.351, has_articles: false, total_sentences: 979 },
+    examples: {
+      sov: [
+        "İşte o anda Seyit, oturduğu yerden hızla kalktı.",
+        "Bu kadrolar ilerde ihtiyaç olursa diye alınıyor.",
+        "Burada toplanan yurttaşların duyarlılığını paylaşıyoruz.",
+      ],
+      adj_before_noun: [
+        "Yaşlı bir martının anlattığı öykü geldi aklına.",
+        "Fakat yeni devletin bu konularda elinde çok az imkan vardı.",
+        "Hayallerimin tek erkeğiydi.",
+      ],
+    },
+  },
+  EN: {
+    stats: { article_ratio: 0.442, overt_subject_ratio: 0.415, adj_before_noun_ratio: 0.388, has_articles: true, total_sentences: 2001 },
+    examples: {
+      article: [
+        "The US troops fired into the hostile crowd, killing 4.",
+        "They do have a good selection of fabric and notions.",
+        "I love the meat!",
+      ],
+      overt_subject: [
+        "Do you have this information?",
+        "I get Microdermabrasions regularly and I love the environment.",
+        "I love the meat!",
+      ],
+    },
+  },
+  ES: {
+    stats: { article_ratio: 0.909, postnominal_adj_ratio: 0.726, has_articles: true, total_sentences: 1400 },
+    examples: {
+      article: [
+        "El ácido peroxodisulfúrico es un oxidante fuerte.",
+        "El diario en ese momento organiza un concurso de belleza.",
+        "La renta per cápita para la localidad era de $18,186.",
+      ],
+      postnominal_adj: [
+        "Culturas prehistóricas de Copiapó.",
+        "Se dedicó fundamentalmente a la historieta humorística.",
+        "Los Tampus también fueron utilizados como destacamentos militares.",
+      ],
+    },
+  },
+};
+
+// Euclidean distances from research proposal (UD-based)
+const TYPO_DIST = {
+  "TR→EN": 0.466,
+  "TR→ES": 0.536,
+  "EN→TR": 0.466,
+  "ES→TR": 0.536,
+  "EN→ES": 0.211,
+  "ES→EN": 0.211,
+};
+
+// ════════════════════════════════════════════════════
+//  EXERCISE DATA — keyed by "L1→Target"
+//  Each question has optional l2_note for when L2 is present
+// ════════════════════════════════════════════════════
+const DATA = {
+
+  "TR→EN": [
+    {
+      sentence: "Book is on table.",
+      errorType: "Article omission",
+      instruction: "Choose the correct version of this sentence.",
+      options: ["Book is on table.", "The book is on the table.", "A book is on a tables."],
+      correct: 1,
+      feedback: {
+        correct: "Well done!",
+        wrong: "The correct sentence is: <em>The book is on the table.</em>",
+        cli: "Turkish has no article system — nouns like <strong>kitap</strong> carry no determiner. When transferring this pattern to English, Turkish L1 speakers frequently omit <em>the</em> and <em>a/an</em>. English requires a determiner before most singular countable nouns.",
+        l2_note: { ES: "Spanish also has a definite article system (<em>el/la</em>), so your Spanish L2 experience can help you here — the structure is parallel.", EN: null },
+        treebank: { lang: "EN", cat: "article", label: "English — overt article in native speech" },
+      }
+    },
+    {
+      sentence: "Is raining today.",
+      errorType: "Null subject (pro-drop)",
+      instruction: "Choose the correct version of this sentence.",
+      options: ["Is raining today.", "Raining is today.", "It is raining today."],
+      correct: 2,
+      feedback: {
+        correct: "Correct!",
+        wrong: "The correct sentence is: <em>It is raining today.</em>",
+        cli: "Turkish is pro-drop — the subject can be omitted because the verb suffix signals it (<strong>yağıyor</strong> stands alone). English requires an overt subject in every clause, including a dummy <em>it</em> for weather verbs.",
+        l2_note: { ES: "Spanish is also pro-drop (<em>Está lloviendo</em> is correct without a subject), so your Spanish L2 may reinforce this error. Be especially careful with English weather expressions.", EN: null },
+        treebank: { lang: "EN", cat: "overt_subject", label: "English — overt pronoun subject in native speech" },
+      }
+    },
+    {
+      sentence: "I know that he the book read.",
+      errorType: "Verb-final word order (SOV)",
+      instruction: "Choose the correct version of this sentence.",
+      options: ["I know that he the book read.", "I know that he read the book.", "I know that read he the book."],
+      correct: 1,
+      feedback: {
+        correct: "Correct!",
+        wrong: "The correct sentence is: <em>I know that he read the book.</em>",
+        cli: "Turkish is SOV: <strong>O kitabı okudu</strong> = He the-book read. Turkish L1 speakers transfer this verb-final pattern into English embedded clauses. English is SVO — the verb must come before the object.",
+        l2_note: { ES: "Spanish is SVO like English, so your Spanish L2 actually works in your favour here — both languages require verb before object.", EN: null },
+        treebank: { lang: "TR", cat: "sov", label: "Turkish SOV — verb at the end (native speaker)" },
+      }
+    },
+    {
+      sentence: "She not came to class yesterday.",
+      errorType: "Negation structure",
+      instruction: "Choose the correct version of this sentence.",
+      options: ["She not came to class yesterday.", "She didn't come to class yesterday.", "She came not to class yesterday."],
+      correct: 1,
+      feedback: {
+        correct: "Correct!",
+        wrong: "The correct sentence is: <em>She didn't come to class yesterday.</em>",
+        cli: "Turkish negation is a suffix on the verb stem: <strong>gel-me-di</strong> (come-NEG-PAST). Turkish L1 speakers may place <em>not</em> directly before the main verb. English requires the auxiliary <em>do</em> to carry tense in negation: <em>didn't come</em>.",
+        l2_note: { ES: "Spanish uses <em>no</em> before the verb (<em>no vino</em>), which may reinforce placing the negative particle directly before the main verb. Remember that English additionally needs the auxiliary <em>did</em>.", EN: null },
+        treebank: null,
+      }
+    },
+  ],
+
+  "TR→ES": [
+    {
+      sentence: "Libro está en mesa.",
+      errorType: "Article omission",
+      instruction: "Choose the correct version of this sentence.",
+      options: ["Libro está en mesa.", "El libro está en la mesa.", "Un libro está en una mesas."],
+      correct: 1,
+      feedback: {
+        correct: "¡Muy bien!",
+        wrong: "The correct sentence is: <em>El libro está en la mesa.</em>",
+        cli: "Turkish has no articles. Spanish requires gender- and number-agreeing definite articles (<em>el/la/los/las</em>) — a structure completely absent in Turkish.",
+        l2_note: { EN: "Your English L2 also has articles (<em>the, a</em>), so you already know the concept of definiteness marking. Spanish articles agree in gender and number — that is the extra step beyond English.", ES: null },
+        treebank: { lang: "ES", cat: "article", label: "Spanish — overt article in native speech" },
+      }
+    },
+    {
+      sentence: "Tengo un rojo coche.",
+      errorType: "Adjective placement",
+      instruction: "Choose the correct version of this sentence.",
+      options: ["Tengo un rojo coche.", "Tengo un coche rojo.", "Rojo tengo un coche."],
+      correct: 1,
+      feedback: {
+        correct: "¡Correcto!",
+        wrong: "The correct sentence is: <em>Tengo un coche rojo.</em>",
+        cli: "Turkish always places adjectives before nouns: <strong>kırmızı araba</strong>. Spanish typically places descriptive adjectives after nouns. Turkish L1 speakers transfer pre-nominal order, and if they also speak English this is doubly reinforced.",
+        l2_note: { EN: "English pre-nominal adjectives (<em>red car</em>) reinforce the Turkish pattern — both your L1 and L2 push you toward pre-nominal order. Spanish post-nominal placement needs deliberate attention.", ES: null },
+        treebank: { lang: "ES", cat: "postnominal_adj", label: "Spanish — adjective after noun (native speech)" },
+      }
+    },
+    {
+      sentence: "Creo que él libro leyó.",
+      errorType: "Verb-final word order (SOV→SVO)",
+      instruction: "Choose the correct version of this sentence.",
+      options: ["Creo que él libro leyó.", "Creo que él leyó el libro.", "Creo que leyó libro."],
+      correct: 1,
+      feedback: {
+        correct: "¡Correcto!",
+        wrong: "The correct sentence is: <em>Creo que él leyó el libro.</em>",
+        cli: "Turkish SOV order transfers to Spanish embedded clauses. Spanish is SVO. Note: Spanish is pro-drop, so <em>leyó el libro</em> (without <em>él</em>) is also acceptable — this is one point of positive transfer from Turkish.",
+        l2_note: { EN: "English is also SVO, so your L2 experience reinforces the correct Spanish word order here.", ES: null },
+        treebank: { lang: "TR", cat: "sov", label: "Turkish SOV — verb-final in native speech" },
+      }
+    },
+    {
+      sentence: "Veo mi amigo todos los días.",
+      errorType: "Personal 'a' omission",
+      instruction: "Choose the correct version of this sentence.",
+      options: ["Veo mi amigo todos los días.", "Veo a mi amigo todos los días.", "Veo para mi amigo todos los días."],
+      correct: 1,
+      feedback: {
+        correct: "¡Muy bien!",
+        wrong: "The correct sentence is: <em>Veo a mi amigo todos los días.</em>",
+        cli: "Spanish marks animate direct objects with the preposition <em>a</em>. Turkish marks objects with the accusative suffix <strong>-ı/i</strong> on the noun — a suffix, not a separate preposition. The personal <em>a</em> has no Turkish equivalent.",
+        l2_note: { EN: "English also has no personal <em>a</em> (<em>I see my friend</em>), so your L2 does not help here — both Turkish L1 and English L2 lack this structure.", ES: null },
+        treebank: null,
+      }
+    },
+  ],
+
+  "EN→ES": [
+    {
+      sentence: "Tengo un rojo coche.",
+      errorType: "Adjective placement",
+      instruction: "Choose the correct version of this sentence.",
+      options: ["Tengo un rojo coche.", "Tengo un coche rojo.", "Rojo tengo un coche."],
+      correct: 1,
+      feedback: {
+        correct: "¡Correcto!",
+        wrong: "The correct sentence is: <em>Tengo un coche rojo.</em>",
+        cli: "English consistently places adjectives before nouns (<em>red car</em>). Spanish places most descriptive adjectives after nouns (<em>coche rojo</em>). This is one of the most persistent CLI effects in English→Spanish acquisition.",
+        l2_note: { TR: "Turkish also places adjectives before nouns (<em>kırmızı araba</em>), so your Turkish L2 reinforces this error. Both your L1 and L2 push you toward pre-nominal placement.", ES: null },
+        treebank: { lang: "ES", cat: "postnominal_adj", label: "Spanish — adjective after noun (native speech)" },
+      }
+    },
+    {
+      sentence: "Yo siempre como en casa.",
+      errorType: "Subject pronoun — acceptable here",
+      instruction: "This sentence is actually grammatically correct in Spanish. Which version is most natural?",
+      options: ["Yo siempre como en casa.", "Siempre como en casa.", "Yo siempre yo como en casa."],
+      correct: 1,
+      feedback: {
+        correct: "Correct — both are possible, but the null-subject version is more natural.",
+        wrong: "Both <em>Yo siempre como</em> and <em>Siempre como</em> are grammatical. Native speakers prefer to drop the pronoun when context is clear.",
+        cli: "English always requires an overt subject (<em>I always eat at home</em>). English L1 speakers often overuse <em>yo</em> in Spanish because their L1 gives no null-subject option. Spanish is pro-drop: when context makes the subject clear, dropping the pronoun is preferred.",
+        l2_note: { TR: "Turkish is also pro-drop, so your Turkish L2 experience should help you feel comfortable omitting the subject pronoun in Spanish.", ES: null },
+        treebank: null,
+      }
+    },
+    {
+      sentence: "Veo mi amigo todos los días.",
+      errorType: "Personal 'a' omission",
+      instruction: "Choose the correct version of this sentence.",
+      options: ["Veo mi amigo todos los días.", "Veo a mi amigo todos los días.", "Veo para mi amigo todos los días."],
+      correct: 1,
+      feedback: {
+        correct: "¡Muy bien!",
+        wrong: "The correct sentence is: <em>Veo a mi amigo todos los días.</em>",
+        cli: "English has no equivalent to the Spanish personal <em>a</em> that marks human direct objects (<em>I see my friend</em>). English L1 speakers omit it because their L1 gives no signal for this structure.",
+        l2_note: { TR: "Turkish uses an accusative suffix <strong>-ı/i</strong> for specific objects, which is at least a parallel concept — objects can be morphologically marked. This may give you some intuition, even though the forms are different.", ES: null },
+        treebank: null,
+      }
+    },
+    {
+      sentence: "Ella es una inteligente estudiante.",
+      errorType: "Adjective placement + article",
+      instruction: "Choose the correct version of this sentence.",
+      options: ["Ella es una inteligente estudiante.", "Ella es una estudiante muy inteligente.", "Ella es muy inteligente estudiante."],
+      correct: 1,
+      feedback: {
+        correct: "¡Muy bien!",
+        wrong: "The correct sentence is: <em>Ella es una estudiante muy inteligente.</em>",
+        cli: "English places adjectives before nouns and has no grammatical gender. Spanish requires post-nominal order for most descriptive adjectives and gender agreement. Both errors — adjective position and article omission — are predictable from English L1.",
+        l2_note: { TR: "Turkish also places adjectives before nouns and has no gender, so your Turkish L2 does not help here either.", ES: null },
+        treebank: { lang: "ES", cat: "postnominal_adj", label: "Spanish — adjective after noun (native speech)" },
+      }
+    },
+  ],
+
+  "EN→TR": [
+    {
+      sentence: "Ben okul gidiyorum.",
+      errorType: "Missing case suffix (dative)",
+      instruction: "Choose the correct version to say 'I am going to school.'",
+      options: ["Ben okul gidiyorum.", "Ben okula gidiyorum.", "Ben okulu gidiyorum."],
+      correct: 1,
+      feedback: {
+        correct: "Doğru!",
+        wrong: "The correct sentence is: <em>Ben okula gidiyorum.</em>",
+        cli: "English marks direction with a preposition placed before the noun (<em>to school</em>). Turkish marks direction with the dative suffix <strong>-a/-e</strong> attached to the noun (<em>okul-a</em>). English L1 speakers often omit Turkish case suffixes because their L1 uses separate prepositions.",
+        l2_note: { ES: "Spanish also uses prepositions (<em>a la escuela</em>), not suffixes. Your Spanish L2 reinforces the preposition strategy, making Turkish case suffixes harder to acquire.", TR: null },
+        treebank: { lang: "TR", cat: "sov", label: "Turkish — agglutinative suffixes in native speech" },
+      }
+    },
+    {
+      sentence: "Ben sever elma.",
+      errorType: "Word order + verb agreement",
+      instruction: "Choose the correct version to say 'I like apples.'",
+      options: ["Ben sever elma.", "Ben elma severim.", "Ben elma sever."],
+      correct: 1,
+      feedback: {
+        correct: "Doğru!",
+        wrong: "The correct sentence is: <em>Ben elma severim.</em>",
+        cli: "English is SVO: <em>I like apples</em>. Turkish is SOV — the verb must come last (<em>Ben elma severim</em>). Additionally, the verb must carry a person/number suffix: <em>sever-im</em> = like-1SG. English L1 speakers transfer SVO order and omit agreement morphology.",
+        l2_note: { ES: "Spanish is SVO and has rich verb agreement (<em>me gustan las manzanas</em>). The Turkish SOV order is different from both English and Spanish, so this is a genuine new pattern for you.", TR: null },
+        treebank: { lang: "TR", cat: "sov", label: "Turkish SOV — verb-final in native speech" },
+      }
+    },
+    {
+      sentence: "O kitap oku.",
+      errorType: "Verb morphology (tense + agreement)",
+      instruction: "Choose the correct version to say 'She is reading the book.'",
+      options: ["O kitap oku.", "O kitabı okuyor.", "O kitabı okur."],
+      correct: 1,
+      feedback: {
+        correct: "Doğru!",
+        wrong: "The correct sentence is: <em>O kitabı okuyor.</em>",
+        cli: "Turkish is agglutinative — tense and subject agreement are suffixes stacked on the verb: <em>oku-yor</em> (read-PRES.PROG). English expresses these through separate auxiliaries (<em>is reading</em>). English L1 speakers often produce bare verb stems in Turkish.",
+        l2_note: { ES: "Spanish also marks tense through verb endings (<em>lee</em>), so your Spanish L2 gives you some experience with morphological verb agreement. Turkish agreement is more complex but the general principle is familiar.", TR: null },
+        treebank: null,
+      }
+    },
+  ],
+
+  "ES→EN": [
+    {
+      sentence: "Is raining today.",
+      errorType: "Null subject (pro-drop transfer)",
+      instruction: "Choose the correct version of this sentence.",
+      options: ["Is raining today.", "It is raining today.", "Raining it is today."],
+      correct: 1,
+      feedback: {
+        correct: "Correct!",
+        wrong: "The correct sentence is: <em>It is raining today.</em>",
+        cli: "Spanish is pro-drop: <em>Está lloviendo hoy</em> omits the subject because verb morphology encodes it. Spanish L1 speakers transfer this pattern to English, omitting the obligatory dummy subject <em>it</em>. English requires an overt subject in every tensed clause.",
+        l2_note: { TR: "Turkish is also pro-drop, so your Turkish L2 may reinforce this error — both Turkish and Spanish allow null subjects. English is the exception here.", ES: null },
+        treebank: { lang: "EN", cat: "overt_subject", label: "English — overt pronoun subject in native speech" },
+      }
+    },
+    {
+      sentence: "She has 20 years.",
+      errorType: "Semantic transfer (tener/have)",
+      instruction: "Choose the natural English version.",
+      options: ["She has 20 years.", "She is 20 years old.", "She does 20 years."],
+      correct: 1,
+      feedback: {
+        correct: "Correct!",
+        wrong: "The natural English sentence is: <em>She is 20 years old.</em>",
+        cli: "Spanish expresses age with <em>tener</em> (to have): <em>Ella tiene 20 años.</em> Spanish L1 speakers directly translate this structure. English expresses age with <em>be</em>: <em>She is 20 years old.</em> This is semantic CLI — same concept, different verb.",
+        l2_note: { TR: "Turkish uses <em>yaşında olmak</em> (to be of age), parallel to English, so your Turkish L2 may actually help you here.", ES: null },
+        treebank: null,
+      }
+    },
+    {
+      sentence: "Yesterday I go to the park.",
+      errorType: "Tense marking",
+      instruction: "Choose the correct version of this sentence.",
+      options: ["Yesterday I go to the park.", "Yesterday I went to the park.", "Yesterday I was go to the park."],
+      correct: 1,
+      feedback: {
+        correct: "Correct!",
+        wrong: "The correct sentence is: <em>Yesterday I went to the park.</em>",
+        cli: "Spanish has rich tense morphology. However, Spanish L1 speakers sometimes rely on the lexical time marker (<em>yesterday</em>) and use the present form, as Spanish discourse can be more flexible with tense in conversational contexts. English requires obligatory tense inflection on the verb regardless of adverbials.",
+        l2_note: { TR: "Turkish also marks past tense morphologically on the verb (<em>gitti</em> = went), so your Turkish L2 reinforces the expectation of tense marking — use this as support.", ES: null },
+        treebank: null,
+      }
+    },
+    {
+      sentence: "I am agree with you.",
+      errorType: "Adjective/verb confusion (estar+adjective transfer)",
+      instruction: "Choose the correct version of this sentence.",
+      options: ["I am agree with you.", "I agree with you.", "I am agreed with you."],
+      correct: 1,
+      feedback: {
+        correct: "Correct!",
+        wrong: "The correct sentence is: <em>I agree with you.</em>",
+        cli: "Spanish uses <em>estar de acuerdo</em> (to be in agreement), which looks like a copula + adjective construction. Spanish L1 speakers transfer the copula <em>be</em> into English, producing <em>I am agree</em>. In English, <em>agree</em> is a verb that directly takes a subject.",
+        l2_note: { TR: "Turkish uses <em>katılıyorum</em> (I agree), a verb without a copula, which aligns with English structure and may help you here.", ES: null },
+        treebank: null,
+      }
+    },
+  ],
+
+  "ES→TR": [
+    {
+      sentence: "Ben gidiyorum markete.",
+      errorType: "Verb-final word order",
+      instruction: "Choose the most natural Turkish version to say 'I am going to the market.'",
+      options: ["Ben gidiyorum markete.", "Ben markete gidiyorum.", "Markete gidiyorum."],
+      correct: 2,
+      feedback: {
+        correct: "Doğru! (Both options 2 and 3 are acceptable — option 3 drops the subject, which is natural in Turkish.)",
+        wrong: "The most natural version is: <em>Ben markete gidiyorum.</em> or simply <em>Markete gidiyorum.</em>",
+        cli: "Spanish and English allow post-verbal complements. Turkish is strictly verb-final (SOV) — the verb must come at the end. Spanish L1 speakers often place complements after the verb, following their L1 pattern.",
+        l2_note: { EN: "English is also SVO, so both your L1 and L2 use verb-medial structures. Turkish verb-final order requires deliberate practice.", TR: null },
+        treebank: { lang: "TR", cat: "sov", label: "Turkish SOV — verb-final in native speech" },
+      }
+    },
+    {
+      sentence: "Ben okul gidiyorum.",
+      errorType: "Missing case suffix (dative)",
+      instruction: "Choose the correct version to say 'I am going to school.'",
+      options: ["Ben okul gidiyorum.", "Ben okula gidiyorum.", "Ben için okul gidiyorum."],
+      correct: 1,
+      feedback: {
+        correct: "Doğru!",
+        wrong: "The correct sentence is: <em>Ben okula gidiyorum.</em>",
+        cli: "Spanish uses the preposition <em>a</em> before the destination (<em>voy a la escuela</em>). Turkish uses the dative suffix <strong>-a/-e</strong> attached directly to the noun: <em>okul-a</em>. Spanish L1 speakers may omit the suffix or try to add a separate preposition word.",
+        l2_note: { EN: "English also uses a preposition (<em>to school</em>), so both your L1 and L2 use free prepositions rather than suffixes. Turkish agglutinative case marking is a genuinely new system.", TR: null },
+        treebank: null,
+      }
+    },
+    {
+      sentence: "O güzel bir kız.",
+      errorType: "Copula usage",
+      instruction: "This is a present-tense statement. Which version is most complete in formal Turkish?",
+      options: ["O güzel bir kız.", "O güzel bir kızdır.", "O olan güzel bir kız."],
+      correct: 1,
+      feedback: {
+        correct: "Doğru! The zero-copula form is also acceptable in informal speech.",
+        wrong: "The most complete formal version is: <em>O güzel bir kızdır.</em> The zero-copula form (<em>O güzel bir kız</em>) is acceptable informally.",
+        cli: "Spanish always requires an explicit copula (<em>ser/estar</em>): <em>Ella es una chica bonita.</em> Turkish allows zero-copula constructions in the present tense; the copula suffix <strong>-(d)ır</strong> is optional informally. Spanish L1 speakers may feel uncomfortable with the absent copula.",
+        l2_note: { EN: "English always uses <em>be</em> (<em>She is a beautiful girl</em>), reinforcing the expectation of an overt copula. Turkish null-copula is different from both.", TR: null },
+        treebank: null,
+      }
+    },
+  ],
+};
+
+// ════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════
+let selectedL1 = null, selectedL2 = null, selectedTarget = null;
+let l2Skipped   = false;
+let questions   = [], current = 0, score = 0, answered = false;
+
+const LANG_NAME = { TR: "Turkish", EN: "English", ES: "Spanish" };
+
+// ════════════════════════════════════════════════════
+//  SETUP LOGIC
+// ════════════════════════════════════════════════════
+function setStep(stepId, enabled) {
+  const el = document.getElementById(stepId);
+  el.style.opacity = enabled ? "1" : "0.4";
+  el.style.pointerEvents = enabled ? "auto" : "none";
+}
+
+// ── Step 1: L1 ──────────────────────────────────────
+document.querySelectorAll('#l1-buttons .lang-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#l1-buttons .lang-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedL1 = btn.dataset.lang;
+    selectedL2 = null; selectedTarget = null; l2Skipped = false;
+    document.getElementById('skip-l2-btn').classList.remove('active');
+    setStep('step2', true);
+    setStep('step3', false);
+    updateL2Buttons();
+    updateTargetButtons();
+    updateStartBtn();
+  });
+});
+
+// ── Step 2: L2 ──────────────────────────────────────
+document.querySelectorAll('#l2-buttons .lang-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.disabled) return;
+    document.querySelectorAll('#l2-buttons .lang-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('skip-l2-btn').classList.remove('active');
+    btn.classList.add('active');
+    selectedL2 = btn.dataset.lang;
+    l2Skipped  = false;
+    setStep('step3', true);
+    updateTargetButtons();
+    updateStartBtn();
+  });
+});
+
+document.getElementById('skip-l2-btn').addEventListener('click', () => {
+  document.querySelectorAll('#l2-buttons .lang-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('skip-l2-btn').classList.add('active');
+  selectedL2 = null;
+  l2Skipped  = true;
+  setStep('step3', true);
+  updateTargetButtons();
+  updateStartBtn();
+});
+
+// ── Step 3: Target ──────────────────────────────────
+document.querySelectorAll('#target-buttons .lang-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (btn.disabled) return;
+    document.querySelectorAll('#target-buttons .lang-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedTarget = btn.dataset.lang;
+    updateStartBtn();
+  });
+});
+
+// ── Update functions ────────────────────────────────
+function updateL2Buttons() {
+  document.querySelectorAll('#l2-buttons .lang-btn').forEach(btn => {
+    const lang = btn.dataset.lang;
+    const isSame = lang === selectedL1;
+    btn.disabled = isSame || !selectedL1;
+    btn.classList.remove('active');
+
+    const name = LANG_NAME[lang];
+    if (!selectedL1 || isSame) {
+      btn.innerHTML = `<span class="btn-name">${name}</span>`;
+    } else {
+      btn.innerHTML = `<span class="btn-name">${name}</span><span class="avail-tag yes">available</span>`;
+    }
+  });
+}
+
+function updateTargetButtons() {
+  document.querySelectorAll('#target-buttons .lang-btn').forEach(btn => {
+    const lang  = btn.dataset.lang;
+    const taken = lang === selectedL1 || lang === selectedL2;
+    btn.disabled = taken || (!selectedL2 && !l2Skipped);
+    btn.classList.remove('active');
+
+    const name = LANG_NAME[lang];
+    if (!selectedL1 || taken) {
+      btn.innerHTML = `<span class="btn-name">${name}</span>`;
+      return;
+    }
+
+    const key    = `${selectedL1}→${lang}`;
+    const hasData = DATA[key] && DATA[key].length > 0;
+    const tag    = hasData
+      ? `<span class="avail-tag yes">available</span>`
+      : `<span class="avail-tag no">coming soon</span>`;
+    btn.innerHTML = `<span class="btn-name">${name}</span>${tag}`;
+  });
+}
+
+function updateStartBtn() {
+  const key = `${selectedL1}→${selectedTarget}`;
+  const ok  = selectedL1 && (selectedL2 || l2Skipped) && selectedTarget &&
+               selectedTarget !== selectedL1 &&
+               DATA[key] && DATA[key].length > 0;
+  document.getElementById('start-btn').disabled = !ok;
+}
+
+document.getElementById('start-btn').addEventListener('click', startExercise);
+
+// ════════════════════════════════════════════════════
+//  EXERCISE
+// ════════════════════════════════════════════════════
+function startExercise() {
+  const key = `${selectedL1}→${selectedTarget}`;
+  questions = DATA[key];
+  current = 0; score = 0; answered = false;
+
+  document.getElementById('setup').style.display    = 'none';
+  document.getElementById('exercise').style.display = 'block';
+
+  // Profile bar
+  const pb = document.getElementById('profile-bar');
+  pb.style.display = 'flex';
+  document.getElementById('pb-l1').textContent     = LANG_NAME[selectedL1];
+  document.getElementById('pb-l2').textContent     = selectedL2 ? LANG_NAME[selectedL2] : '—';
+  document.getElementById('pb-target').textContent = LANG_NAME[selectedTarget];
+
+  const dist = TYPO_DIST[key];
+  if (dist !== undefined) {
+    document.getElementById('pb-stats').innerHTML =
+      `<span class="stat-chip">Typological distance: ${dist}</span>`;
+    document.getElementById('pb-stats-wrap').style.display = 'flex';
+  }
+
+  renderQuestion();
+}
+
+function renderQuestion() {
+  answered = false;
+  const q     = questions[current];
+  const total = questions.length;
+
+  document.getElementById('progress-bar').style.width = `${(current / total) * 100}%`;
+
+  document.getElementById('q-meta').innerHTML =
+    `<span>${LANG_NAME[selectedL1]} → ${LANG_NAME[selectedTarget]}</span>` +
+    `<span class="cli-tag">${q.errorType}</span>` +
+    `<span>${current + 1} / ${total}</span>`;
+
+  document.getElementById('error-label').textContent = 'Find the error';
+  document.getElementById('q-sentence').textContent  = q.sentence;
+  document.getElementById('q-instruction').textContent = q.instruction;
+
+  const optEl = document.getElementById('q-options');
+  optEl.innerHTML = '';
+  q.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'option-btn';
+    btn.innerHTML = opt;
+    btn.addEventListener('click', () => handleAnswer(i));
+    optEl.appendChild(btn);
+  });
+
+  document.getElementById('feedback-box').style.display = 'none';
+  document.getElementById('next-btn').style.display     = 'none';
+}
+
+function handleAnswer(chosen) {
+  if (answered) return;
+  answered = true;
+
+  const q = questions[current];
+  const isCorrect = chosen === q.correct;
+  if (isCorrect) score++;
+
+  document.querySelectorAll('.option-btn').forEach((btn, i) => {
+    btn.disabled = true;
+    if (i === q.correct) btn.classList.add('correct');
+    else if (i === chosen && !isCorrect) btn.classList.add('wrong');
+  });
+
+  // Build feedback
+  const fb = document.getElementById('feedback-box');
+  fb.style.display = 'block';
+  fb.className = 'feedback-box ' + (isCorrect ? 'correct-fb' : 'wrong-fb');
+
+  document.getElementById('fb-title').textContent = isCorrect
+    ? '✓ ' + q.feedback.correct
+    : '✗ Not quite.';
+
+  document.getElementById('fb-main').innerHTML = isCorrect ? '' : q.feedback.wrong;
+
+  // CLI explanation + optional L2 note
+  let cliHTML = '<strong>Why does this happen?</strong> ' + q.feedback.cli;
+  if (selectedL2 && q.feedback.l2_note && q.feedback.l2_note[selectedL2]) {
+    cliHTML += `<br><br><strong>Your L2 (${LANG_NAME[selectedL2]}):</strong> ${q.feedback.l2_note[selectedL2]}`;
+  }
+  document.getElementById('fb-cli').innerHTML = cliHTML;
+
+  // Treebank example
+  const tbEl  = document.getElementById('fb-treebank');
+  const tbTxt = document.getElementById('fb-treebank-text');
+  if (q.feedback.treebank) {
+    const { lang, cat, label } = q.feedback.treebank;
+    const exList = TB[lang]?.examples?.[cat];
+    if (exList && exList.length > 0) {
+      const ex = exList[current % exList.length];
+      document.querySelector('#fb-treebank .tb-label').textContent = label;
+      tbTxt.innerHTML = `<em>${ex}</em>`;
+      tbEl.style.display = 'block';
+    } else {
+      tbEl.style.display = 'none';
+    }
+  } else {
+    tbEl.style.display = 'none';
+  }
+
+  document.getElementById('next-btn').style.display = 'block';
+}
+
+document.getElementById('next-btn').addEventListener('click', () => {
+  current++;
+  if (current < questions.length) renderQuestion();
+  else showResults();
+});
+
+// ════════════════════════════════════════════════════
+//  RESULTS
+// ════════════════════════════════════════════════════
+function showResults() {
+  document.getElementById('exercise').style.display = 'none';
+  document.getElementById('results').style.display  = 'block';
+
+  const total = questions.length;
+  document.getElementById('final-score').textContent = `${score} / ${total}`;
+
+  const pct = score / total;
+  const key = `${selectedL1}→${selectedTarget}`;
+  const dist = TYPO_DIST[key] ? ` (typological distance: ${TYPO_DIST[key]})` : '';
+
+  let msg = '';
+  if (pct === 1)        msg = `Perfect score! You have strong awareness of the structural differences between ${LANG_NAME[selectedL1]} and ${LANG_NAME[selectedTarget]}${dist}.`;
+  else if (pct >= 0.75) msg = `Great work. Review the CLI feedback on the questions you missed — these are patterns where your ${LANG_NAME[selectedL1]} L1 tends to transfer${selectedL2 ? ` (and your ${LANG_NAME[selectedL2]} L2 may compound this)` : ''}.`;
+  else if (pct >= 0.5)  msg = `Good effort. The structural distance between ${LANG_NAME[selectedL1]} and ${LANG_NAME[selectedTarget]}${dist} predicts exactly these difficulties. Focus on the CLI explanations.`;
+  else                  msg = `Keep practising. The errors here are systematically predictable from your ${LANG_NAME[selectedL1]} background${dist}. Understanding the structural reasons helps more than memorising rules.`;
+
+  document.getElementById('results-msg').textContent = msg;
+}
+
+document.getElementById('restart-btn').addEventListener('click', () => {
+  document.getElementById('results').style.display  = 'none';
+  document.getElementById('profile-bar').style.display = 'none';
+  document.getElementById('setup').style.display    = 'block';
+  selectedL1 = null; selectedL2 = null; selectedTarget = null; l2Skipped = false;
+  document.querySelectorAll('.lang-btn').forEach(b => { b.classList.remove('active'); b.disabled = true; });
+  document.querySelectorAll('#l1-buttons .lang-btn').forEach(b => b.disabled = false);
+  document.getElementById('skip-l2-btn').classList.remove('active');
+  setStep('step2', false);
+  setStep('step3', false);
+  document.getElementById('start-btn').disabled = true;
+  document.getElementById('pb-stats-wrap').style.display = 'none';
+});
+</script>
+</body>
+</html>
